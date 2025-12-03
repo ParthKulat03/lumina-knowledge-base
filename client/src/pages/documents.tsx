@@ -99,6 +99,10 @@ export default function DocumentsPage() {
     simulateUpload();
   };
 
+  const handleDelete = (id: string) => {
+    setDocs(prev => prev.filter(doc => doc.id !== id));
+  };
+
   return (
     <DashboardLayout>
       <div className="p-8 space-y-8">
@@ -222,7 +226,12 @@ export default function DocumentsPage() {
                   <TableCell className="text-muted-foreground text-sm font-mono">{doc.chunks > 0 ? doc.chunks : '-'}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{doc.uploadedAt}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(doc.id)}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </TableCell>

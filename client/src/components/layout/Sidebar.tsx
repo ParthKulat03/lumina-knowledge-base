@@ -60,9 +60,11 @@ export function Sidebar() {
             <p className="text-sm font-medium truncate">John Doe</p>
             <p className="text-xs text-muted-foreground truncate">Admin Workspace</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <LogOut className="w-4 h-4 text-muted-foreground" />
-          </Button>
+          <Link href="/auth/login">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <LogOut className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

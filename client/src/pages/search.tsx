@@ -23,14 +23,50 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [hasResult, setHasResult] = useState(false);
+  const [answer, setAnswer] = useState<any>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     
     setIsSearching(true);
+    setHasResult(false);
+
+    // Mock AI Logic based on Keywords
+    const q = query.toLowerCase();
+    let mockResponse;
+
+    if (q.includes("meeting") || q.includes("notes") || q.includes("nov")) {
+      mockResponse = {
+        text: `According to the <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Meeting_Notes_Nov.txt">Meeting_Notes_Nov.txt</span>, the team discussed the Q4 roadmap adjustments. Key decisions included pushing the mobile app launch to January and prioritizing the backend scaling initiative.`,
+        sources: [
+          { title: "Meeting_Notes_Nov.txt", page: 1, relevance: "99%", snippet: "...agreed to delay mobile launch to Jan 15th to focus on server stability..." },
+          { title: "Project_Titan_Specs.docx", page: 3, relevance: "45%", snippet: "...timeline dependencies for mobile components..." },
+        ]
+      };
+    } else if (q.includes("titan") || q.includes("specs")) {
+      mockResponse = {
+        text: `The specifications for <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Project_Titan_Specs.docx">Project Titan</span> detail a high-performance architecture requiring 128GB RAM nodes. The initial deployment will consist of 5 clusters across 3 regions.`,
+        sources: [
+          { title: "Project_Titan_Specs.docx", page: 2, relevance: "96%", snippet: "...hardware requirements: Minimum 128GB RAM per node, 10Gbps networking..." },
+          { title: "Q3_Financial_Report.pdf", page: 8, relevance: "30%", snippet: "...allocated budget for hardware upgrades in Q4..." },
+        ]
+      };
+    } else {
+      // Default Q3 Answer
+      mockResponse = {
+        text: `Based on the <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Q3_Financial_Report.pdf">Q3 Financial Report</span>, the company saw a <span class="bg-emerald-100 text-emerald-800 px-1 rounded font-medium">15% increase</span> in revenue year-over-year. This growth was primarily driven by the Enterprise sector, which outperformed expectations by 8%.`,
+        sources: [
+          { title: "Q3_Financial_Report.pdf", page: 4, relevance: "98%", snippet: "...revenue increased by 15% YoY, driven primarily by strong Enterprise adoption..." },
+          { title: "Project_Titan_Specs.docx", page: 12, relevance: "85%", snippet: "...infrastructure requirements for Titan will necessitate a 5% OPEX increase..." },
+          { title: "Meeting_Notes_Nov.txt", page: 1, relevance: "72%", snippet: "...discussed the ROI timeline for the new investments, targeting Q1 2025..." },
+        ]
+      };
+    }
+
     // Simulate API delay
     setTimeout(() => {
+      setAnswer(mockResponse);
       setIsSearching(false);
       setHasResult(true);
     }, 1500);
@@ -111,7 +147,7 @@ export default function SearchPage() {
             )}
 
             {/* Answer Section */}
-            {!isSearching && hasResult && (
+            {!isSearching && hasResult && answer && (
               <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                 
                 {/* AI Response */}
@@ -121,12 +157,10 @@ export default function SearchPage() {
                   </div>
                   <div className="flex-1 space-y-4">
                     <div className="prose prose-slate max-w-none">
-                      <p className="leading-relaxed text-foreground/90 text-lg">
-                        Based on the <span className="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Q3_Financial_Report.pdf">Q3 Financial Report</span>, the company saw a <span className="bg-emerald-100 text-emerald-800 px-1 rounded font-medium">15% increase</span> in revenue year-over-year. This growth was primarily driven by the Enterprise sector, which outperformed expectations by 8%. 
-                      </p>
-                      <p className="leading-relaxed text-foreground/90 text-lg mt-4">
-                        However, operating costs also rose by 5% due to new infrastructure investments for <span className="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Project_Titan_Specs.docx">Project Titan</span>. The projected ROI for these investments is expected to materialize in Q1 2025.
-                      </p>
+                      <p 
+                        className="leading-relaxed text-foreground/90 text-lg"
+                        dangerouslySetInnerHTML={{ __html: answer.text }}
+                      />
                     </div>
                     
                     <div className="flex items-center gap-2 mt-4">
@@ -151,11 +185,7 @@ export default function SearchPage() {
                     Sources & Citations
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      { title: "Q3_Financial_Report.pdf", page: 4, relevance: "98%", snippet: "...revenue increased by 15% YoY, driven primarily by strong Enterprise adoption..." },
-                      { title: "Project_Titan_Specs.docx", page: 12, relevance: "85%", snippet: "...infrastructure requirements for Titan will necessitate a 5% OPEX increase..." },
-                      { title: "Meeting_Notes_Nov.txt", page: 1, relevance: "72%", snippet: "...discussed the ROI timeline for the new investments, targeting Q1 2025..." },
-                    ].map((source, i) => (
+                    {answer.sources.map((source: any, i: number) => (
                       <Card key={i} className="group hover:border-indigo-300 transition-colors cursor-pointer bg-card/50 backdrop-blur-sm">
                         <CardContent className="p-4 space-y-2">
                           <div className="flex items-center justify-between">
