@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useRagStore } from "@/lib/rag-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { 
   Search, 
-  Send, 
   Sparkles, 
   BookOpen, 
   Copy, 
@@ -25,51 +24,27 @@ export default function SearchPage() {
   const [hasResult, setHasResult] = useState(false);
   const [answer, setAnswer] = useState<any>(null);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const { search } = useRagStore();
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
     
     setIsSearching(true);
     setHasResult(false);
 
-    // Mock AI Logic based on Keywords
-    const q = query.toLowerCase();
-    let mockResponse;
-
-    if (q.includes("meeting") || q.includes("notes") || q.includes("nov")) {
-      mockResponse = {
-        text: `According to the <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Meeting_Notes_Nov.txt">Meeting_Notes_Nov.txt</span>, the team discussed the Q4 roadmap adjustments. Key decisions included pushing the mobile app launch to January and prioritizing the backend scaling initiative.`,
-        sources: [
-          { title: "Meeting_Notes_Nov.txt", page: 1, relevance: "99%", snippet: "...agreed to delay mobile launch to Jan 15th to focus on server stability..." },
-          { title: "Project_Titan_Specs.docx", page: 3, relevance: "45%", snippet: "...timeline dependencies for mobile components..." },
-        ]
-      };
-    } else if (q.includes("titan") || q.includes("specs")) {
-      mockResponse = {
-        text: `The specifications for <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Project_Titan_Specs.docx">Project Titan</span> detail a high-performance architecture requiring 128GB RAM nodes. The initial deployment will consist of 5 clusters across 3 regions.`,
-        sources: [
-          { title: "Project_Titan_Specs.docx", page: 2, relevance: "96%", snippet: "...hardware requirements: Minimum 128GB RAM per node, 10Gbps networking..." },
-          { title: "Q3_Financial_Report.pdf", page: 8, relevance: "30%", snippet: "...allocated budget for hardware upgrades in Q4..." },
-        ]
-      };
-    } else {
-      // Default Q3 Answer
-      mockResponse = {
-        text: `Based on the <span class="font-semibold text-indigo-600 cursor-pointer hover:underline" title="Source: Q3_Financial_Report.pdf">Q3 Financial Report</span>, the company saw a <span class="bg-emerald-100 text-emerald-800 px-1 rounded font-medium">15% increase</span> in revenue year-over-year. This growth was primarily driven by the Enterprise sector, which outperformed expectations by 8%.`,
-        sources: [
-          { title: "Q3_Financial_Report.pdf", page: 4, relevance: "98%", snippet: "...revenue increased by 15% YoY, driven primarily by strong Enterprise adoption..." },
-          { title: "Project_Titan_Specs.docx", page: 12, relevance: "85%", snippet: "...infrastructure requirements for Titan will necessitate a 5% OPEX increase..." },
-          { title: "Meeting_Notes_Nov.txt", page: 1, relevance: "72%", snippet: "...discussed the ROI timeline for the new investments, targeting Q1 2025..." },
-        ]
-      };
-    }
-
-    // Simulate API delay
+    // Real retrieval from client-side store
+    const response = await search(query);
+    
+    // Simulate network delay for realism
     setTimeout(() => {
-      setAnswer(mockResponse);
+      setAnswer({
+        text: response.answer,
+        sources: response.sources
+      });
       setIsSearching(false);
       setHasResult(true);
-    }, 1500);
+    }, 800);
   };
 
   return (
@@ -85,7 +60,7 @@ export default function SearchPage() {
                 <Search className="ml-4 w-5 h-5 text-muted-foreground" />
                 <Input 
                   className="border-none shadow-none focus-visible:ring-0 h-12 text-lg px-4"
-                  placeholder="Ask a question about your documents..."
+                  placeholder="Ask about 'Titan Specs' or 'Page 2 of Financial Report'..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -106,16 +81,16 @@ export default function SearchPage() {
               <span>Try asking:</span>
               <button 
                 className="hover:text-indigo-600 transition-colors"
-                onClick={() => setQuery("Summarize the Q3 financial results")}
+                onClick={() => setQuery("Summary of Project Titan")}
               >
-                "Summarize Q3 results"
+                "Summary of Project Titan"
               </button>
               <span>•</span>
               <button 
                 className="hover:text-indigo-600 transition-colors"
-                onClick={() => setQuery("What are the project Titan specs?")}
+                onClick={() => setQuery("What is on page 1 of Q3 Report?")}
               >
-                "Project Titan specs"
+                "Page 1 of Q3 Report"
               </button>
             </div>
           </div>
