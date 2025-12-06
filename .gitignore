@@ -1,6 +1,29 @@
+# node_modules
+# dist
+# .DS_Store
+# server/public
+# vite.config.ts.*
+# *.tar.gz
+
+
+
+
+# Node
 node_modules
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+# Build
 dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+build
+
+# Environment / secrets
+.env
+.env.local
+.env.development
+.env.production
+
+# Uploads
+server/uploads
+uploads

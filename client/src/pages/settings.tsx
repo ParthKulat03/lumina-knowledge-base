@@ -1,131 +1,177 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSettingsStore } from "@/lib/settings-store";
+import { useAuthStore } from "@/lib/auth-store";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Save, Database, Cpu, Shield } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import {
+  Settings,
+  Search,
+  User,
+  Monitor,
+  Info,
+} from "lucide-react";
+import { useState } from "react";
+
+const TABS = [
+  { id: "general", label: "General", icon: Settings },
+  { id: "search", label: "Search", icon: Search },
+  { id: "account", label: "Account", icon: User },
+  { id: "appearance", label: "Appearance", icon: Monitor },
+  { id: "about", label: "About", icon: Info },
+];
 
 export default function SettingsPage() {
+  const { topK, setTopK } = useSettingsStore();
+  const { user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState("general");
+
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground mt-1">Configure your RAG pipeline and model parameters.</p>
-        </div>
+      <div className="flex h-full w-full">
 
-        <div className="grid gap-6">
-          {/* Model Configuration */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Cpu className="w-5 h-5 text-indigo-600" />
-                <CardTitle>Model Configuration</CardTitle>
-              </div>
-              <CardDescription>Select the LLM and Embedding models for your knowledge base.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>LLM Provider</Label>
-                  <Select defaultValue="gpt4">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="gpt4">GPT-4 Turbo (OpenAI)</SelectItem>
-                      <SelectItem value="claude3">Claude 3 Opus (Anthropic)</SelectItem>
-                      <SelectItem value="llama3">Llama 3 70B (Groq)</SelectItem>
-                      <SelectItem value="mistral">Mixtral 8x7B</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <aside className="w-64 border-r bg-muted/20 px-4 py-6">
+          <h1 className="text-xl font-semibold mb-6 px-2">Settings</h1>
 
-                <div className="space-y-2">
-                  <Label>Embedding Model</Label>
-                  <Select defaultValue="minilm">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select embeddings" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minilm">all-MiniLM-L6-v2 (384d)</SelectItem>
-                      <SelectItem value="ada">text-embedding-3-small (1536d)</SelectItem>
-                      <SelectItem value="cohere">Cohere Embed v3</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <nav className="space-y-1">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm transition
+                ${activeTab === id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "hover:bg-muted"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="flex-1 px-10 py-8 overflow-auto">
+
+          {activeTab === "general" && (
+            <section className="space-y-8 max-w-2xl">
+              <h2 className="text-lg font-semibold">General Preferences</h2>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Enable Notifications</p>
+                  <p className="text-sm text-muted-foreground">
+                    Receive alerts when document indexing finishes.
+                  </p>
                 </div>
+                <Switch defaultChecked />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Hybrid Search</Label>
-                    <p className="text-sm text-muted-foreground">Combine keyword search with semantic vector search</p>
-                  </div>
-                  <Switch defaultChecked />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Auto-save Chats</p>
+                  <p className="text-sm text-muted-foreground">
+                    Keep your conversation history between sessions.
+                  </p>
                 </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Reranking</Label>
-                    <p className="text-sm text-muted-foreground">Re-rank retrieved results for better accuracy</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+                <Switch defaultChecked />
               </div>
-            </CardContent>
-          </Card>
+            </section>
+          )}
 
-          {/* Retrieval Parameters */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-indigo-600" />
-                <CardTitle>Retrieval Parameters</CardTitle>
-              </div>
-              <CardDescription>Fine-tune how documents are chunked and retrieved.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label>Chunk Size</Label>
-                  <div className="relative">
-                    <Input type="number" defaultValue={512} />
-                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">tokens</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Chunk Overlap</Label>
-                  <div className="relative">
-                    <Input type="number" defaultValue={50} />
-                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">tokens</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Top K Results</Label>
-                  <Input type="number" defaultValue={5} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {activeTab === "search" && (
+            <section className="space-y-8 max-w-3xl">
+              <h2 className="text-lg font-semibold">Search Settings</h2>
 
-          <div className="flex justify-end gap-4">
-            <Button variant="outline">Reset to Defaults</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Save className="w-4 h-4 mr-2" />
-              Save Configuration
-            </Button>
-          </div>
-        </div>
+              <div className="space-y-3">
+                <label className="font-medium">Number of chunks (topK)</label>
+                <Slider
+                  value={[topK]}
+                  onValueChange={(v) => setTopK(v[0])}
+                  min={1}
+                  max={20}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Current: <strong>{topK}</strong> chunks
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="font-medium">Relevance Sensitivity</label>
+                <Slider defaultValue={[75]} min={50} max={100} />
+                <p className="text-sm text-muted-foreground">
+                  Higher sensitivity reduces irrelevant matches.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Follow-up Question Hints</p>
+                  <p className="text-sm text-muted-foreground">
+                    Shows suggestions under the search bar.
+                  </p>
+                </div>
+                <Switch defaultChecked />
+              </div>
+            </section>
+          )}
+
+          {activeTab === "account" && (
+            <section className="space-y-8 max-w-xl">
+              <h2 className="text-lg font-semibold">Account</h2>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <Input value={user?.email ?? ""} disabled />
+              </div>
+
+              <Button variant="destructive" className="mt-4">
+                Log Out
+              </Button>
+            </section>
+          )}
+
+          {activeTab === "appearance" && (
+            <section className="space-y-8 max-w-xl">
+              <h2 className="text-lg font-semibold">Appearance</h2>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Dark Mode</p>
+                  <p className="text-sm text-muted-foreground">
+                    Switch between light and dark theme.
+                  </p>
+                </div>
+                <Switch />
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-medium">Text Size</label>
+                <Slider defaultValue={[16]} min={12} max={24} />
+              </div>
+            </section>
+          )}
+
+          {activeTab === "about" && (
+            <section className="space-y-6 max-w-2xl">
+              <h2 className="text-lg font-semibold">About Lumina</h2>
+
+              <p className="text-muted-foreground">
+                Lumina is your personal AI knowledge assistant, helping you
+                search, summarize, and extract insights from your uploaded
+                documents.
+              </p>
+
+              <div className="text-sm space-y-1">
+                <p>Version: <strong>1.0.0</strong></p>
+                <p>Last Updated: Jan 2025</p>
+              </div>
+
+              <Button variant="outline">View Changelog</Button>
+            </section>
+          )}
+        </main>
       </div>
     </DashboardLayout>
   );

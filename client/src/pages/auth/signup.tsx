@@ -1,87 +1,79 @@
+import { FormEvent, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Link, useLocation } from "wouter";
-import { Github, Mail } from "lucide-react";
-import Logo from "@assets/generated_images/minimalist_neural_network_logo.png";
 
 export default function SignupPage() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
+  const { signUp, loading } = useAuthStore();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Mock signup
-    setLocation("/");
+    setError(null);
+    try {
+      await signUp(email, password);
+      navigate("/search");
+    } catch (err: any) {
+      setError(err?.message ?? "Signup failed");
+    }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center space-y-2 text-center">
-          <img src={Logo} alt="Lumina" className="w-12 h-12 object-contain mb-2" />
-          <h1 className="text-2xl font-bold tracking-tight">Create an account</h1>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="max-w-md w-full space-y-6 border rounded-xl p-8 bg-card shadow-sm">
+        <div>
+          <h1 className="text-2xl font-semibold mb-1">Create account</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email below to create your account
+            Sign up to start uploading and querying documents.
           </p>
         </div>
-        
-        <Card className="border shadow-lg">
-          <CardContent className="pt-6">
-            <form onSubmit={handleSignup} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first-name">First name</Label>
-                  <Input id="first-name" placeholder="John" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last-name">Last name</Label>
-                  <Input id="last-name" placeholder="Doe" required />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" placeholder="name@example.com" type="email" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required />
-              </div>
-              <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">
-                Create Account
-              </Button>
-            </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline">
-                <Github className="mr-2 h-4 w-4" />
-                GitHub
-              </Button>
-              <Button variant="outline">
-                <Mail className="mr-2 h-4 w-4" />
-                Google
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <p className="text-center text-sm text-muted-foreground">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Password</label>
+            <Input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded px-2 py-1">
+              {error}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-2"
+          >
+            {loading ? "Signing up..." : "Create account"}
+          </Button>
+        </form>
+
+        <p className="text-xs text-muted-foreground text-center">
           Already have an account?{" "}
-          <Link href="/auth/login">
-            <a className="underline underline-offset-4 hover:text-primary text-indigo-600">
-              Sign in
-            </a>
+          <Link to="/auth/login" className="text-primary hover:underline">
+            Sign in
           </Link>
         </p>
       </div>

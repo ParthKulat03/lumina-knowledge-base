@@ -1,235 +1,248 @@
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { useRagStore } from "@/lib/rag-store";
+import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  FileText, 
-  UploadCloud, 
-  CheckCircle2, 
-  Clock, 
-  Trash2,
-  X,
-  Loader2
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { FileIcon, Trash2, UploadCloud, X } from "lucide-react";
+
+type DocumentRow = {
+  id: string;
+  file_name: string;
+  size_bytes: number | null;
+  status: string | null;
+  uploaded_at: string | null;
+};
 
 export default function DocumentsPage() {
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const { user } = useAuthStore();
+  const [docs, setDocs] = useState<DocumentRow[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const { documents, addDocument, removeDocument } = useRagStore();
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const dropRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchDocs = async () => {
+    if (!user) return;
+    const resp = await fetch(`/api/documents?userId=${user.id}`);
+    const data = await resp.json();
+    setDocs(data || []);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      await processUpload(files[0]);
-    }
+  useEffect(() => {
+    fetchDocs();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hasProcessing = docs.some((d) => d.status === "processing");
+      if (hasProcessing) fetchDocs();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [docs]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
   };
 
-  const processUpload = async (file: File) => {
-    setUploading(true);
+  const handleUpload = async () => {
+    if (!selectedFile || !user) return;
+
+    setIsUploading(true);
     setUploadProgress(0);
 
-    // Fake progress for visual feedback
-    const interval = setInterval(() => {
-      setUploadProgress(prev => Math.min(prev + 10, 90));
-    }, 200);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("userId", user.id);
 
-    await addDocument(file);
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/documents/upload");
 
-    clearInterval(interval);
-    setUploadProgress(100);
-    
-    setTimeout(() => {
-      setUploading(false);
-      setIsUploadOpen(false);
-      setUploadProgress(0);
-    }, 500);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percent);
+        }
+      };
+
+      xhr.onload = () => resolve();
+      xhr.send(formData);
+    });
+
+    setIsUploading(false);
+    setSelectedFile(null);
+    setModalOpen(false);
+
+    fetchDocs();
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processUpload(e.target.files[0]);
-    }
+  useEffect(() => {
+    const dropArea = dropRef.current;
+    if (!dropArea) return;
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files?.[0] || null;
+      setSelectedFile(file);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    dropArea.addEventListener("drop", handleDrop);
+    dropArea.addEventListener("dragover", handleDragOver);
+
+    return () => {
+      dropArea.removeEventListener("drop", handleDrop);
+      dropArea.removeEventListener("dragover", handleDragOver);
+    };
+  }, []);
+
+  const handleDelete = async (docId: string) => {
+    await fetch("/api/documents/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ docId }),
+    });
+
+    fetchDocs();
   };
 
   return (
     <DashboardLayout>
-      <div className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col h-full w-full">
+        <div className="border-b px-8 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
-            <p className="text-muted-foreground mt-1">Manage your knowledge base sources.</p>
+            <h1 className="text-2xl font-semibold">Documents</h1>
+            <p className="text-sm text-muted-foreground">
+              Upload files and I’ll index them for semantic search.
+            </p>
           </div>
-          
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-md">
-                <UploadCloud className="w-4 h-4" />
-                Upload Document
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Upload Documents</DialogTitle>
-                <DialogDescription>
-                  Drag and drop PDF or TXT files here to add them to the knowledge base.
-                </DialogDescription>
-              </DialogHeader>
-              
-              {!uploading ? (
-                <div 
-                  className={`
-                    mt-4 border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200
-                    ${dragActive ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' : 'border-muted-foreground/25 hover:bg-muted/50'}
-                  `}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                      <UploadCloud className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">Click to upload or drag and drop</p>
-                      <p className="text-xs text-muted-foreground mt-1">PDF, TXT, DOCX up to 10MB</p>
-                    </div>
-                    <div className="relative">
-                      <Button variant="outline" size="sm" className="pointer-events-none">Select Files</Button>
-                      <input 
-                        type="file" 
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={handleFileInput}
-                        accept=".txt,.pdf,.md,.docx"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 space-y-4">
-                  <div className="bg-muted/50 rounded-lg p-4 border">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded border shadow-sm">
-                          <FileText className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Uploading...</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Progress value={uploadProgress} className="h-2" />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{uploadProgress === 100 ? 'Complete' : 'Processing...'}</span>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+
+          <Button onClick={() => setModalOpen(true)} className="gap-2">
+            <UploadCloud className="w-4 h-4" />
+            Upload Document
+          </Button>
         </div>
 
-        <Card className="border-none shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent border-b border-border/60">
-                <TableHead className="w-[300px]">Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Chunks</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                    No documents uploaded yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                documents.map((doc) => (
-                  <TableRow key={doc.id} className="group">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded bg-muted text-muted-foreground">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <span>{doc.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {doc.status === 'ready' ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Indexed
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Indexing
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{doc.size}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm font-mono">
-                      {doc.chunks?.length || 0}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{doc.uploadedAt}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                        onClick={() => removeDocument(doc.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+        <div className="flex-1 px-8 py-6 overflow-auto">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : docs.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+              <FileIcon className="w-10 h-10 mb-3" />
+              <p className="font-medium">No documents uploaded yet.</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-2">Name</th>
+                    <th className="text-left px-4 py-2">Status</th>
+                    <th className="text-left px-4 py-2">Size</th>
+                    <th className="text-left px-4 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {docs.map((doc) => (
+                    <tr key={doc.id} className="border-b">
+                      <td className="px-4 py-2">{doc.file_name}</td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${
+                            doc.status === "ready"
+                              ? "bg-green-50 text-green-700"
+                              : "bg-amber-50 text-amber-700"
+                          }`}
+                        >
+                          {doc.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        {(doc.size_bytes! / 1024).toFixed(1)} KB
+                      </td>
+                      <td className="px-4 py-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(doc.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {modalOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl shadow-xl w-[450px] space-y-4 animate-in fade-in">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold">Upload Document</h2>
+                <button onClick={() => setModalOpen(false)}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div
+                ref={dropRef}
+                className="border-2 border-dashed rounded-md p-6 text-center text-sm text-muted-foreground cursor-pointer hover:bg-muted/30 transition"
+              >
+                Drag & Drop file here
+              </div>
+
+              {selectedFile && (
+                <div className="p-3 border rounded-md text-sm flex justify-between items-center">
+                  <span>
+                    {selectedFile.name} — {(selectedFile.size / 1024).toFixed(1)} KB
+                  </span>
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="text-red-500"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               )}
-            </TableBody>
-          </Table>
-        </Card>
+
+              <Input type="file" onChange={handleFileSelect} />
+
+              {isUploading && (
+                <div className="w-full bg-muted h-3 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-full transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => setModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={!selectedFile || isUploading}
+                  onClick={handleUpload}
+                >
+                  {isUploading ? "Uploading..." : "Upload"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

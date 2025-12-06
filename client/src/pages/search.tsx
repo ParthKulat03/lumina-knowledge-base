@@ -1,111 +1,160 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { useRagStore } from "@/lib/rag-store";
+import { useRagStore, ChatMessage } from "@/lib/rag-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  Sparkles, 
-  BookOpen, 
-  Copy, 
-  ThumbsUp, 
+import {
+  Search,
+  Sparkles,
+  Copy,
+  ThumbsUp,
   ThumbsDown,
   ArrowRight,
-  FileText
+  Bot,
+  User as UserIcon,
+  PlusCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function SearchPage() {
-  const [query, setQuery] = useState("");
+  const [input, setInput] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [hasResult, setHasResult] = useState(false);
-  const [answer, setAnswer] = useState<any>(null);
 
-  const { search } = useRagStore();
+  const { search, chatMessages, addChatMessage, clearChatMessages } =
+    useRagStore();
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isSearching]);
+
+  const handleSend = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = input.trim();
+    if (!trimmed || isSearching) return;
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: trimmed,
+    };
+    addChatMessage(userMsg);
+
     setIsSearching(true);
-    setHasResult(false);
+    setInput("");
 
-    // Real retrieval from client-side store
-    const response = await search(query);
-    
-    // Simulate network delay for realism
-    setTimeout(() => {
-      setAnswer({
-        text: response.answer,
-        sources: response.sources
-      });
-      setIsSearching(false);
-      setHasResult(true);
-    }, 800);
+    const response = await search(trimmed);
+
+    const assistantMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: response.answer,
+    };
+    addChatMessage(assistantMsg);
+
+    setIsSearching(false);
   };
+
+  const handleQuickPrompt = (text: string) => {
+    setInput(text);
+  };
+
+  const handleNewChat = () => {
+    clearChatMessages();
+    setInput("");
+  };
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  const hasResult = chatMessages.some((m) => m.role === "assistant");
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full">
-        {/* Search Header */}
-        <div className="bg-background border-b sticky top-0 z-10 px-8 py-6">
-          <div className="max-w-3xl mx-auto w-full">
-            <h1 className="text-2xl font-semibold mb-6 text-center">What can I help you find?</h1>
-            <form onSubmit={handleSearch} className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-20 group-hover:opacity-30 transition-opacity duration-500" />
-              <div className="relative bg-background rounded-xl shadow-sm border border-input flex items-center p-1">
-                <Search className="ml-4 w-5 h-5 text-muted-foreground" />
-                <Input 
-                  className="border-none shadow-none focus-visible:ring-0 h-12 text-lg px-4"
-                  placeholder="Ask about 'Titan Specs' or 'Page 2 of Financial Report'..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <Button 
-                  size="icon" 
-                  type="submit"
-                  className={cn(
-                    "h-10 w-10 rounded-lg transition-all duration-300",
-                    query.trim() ? "bg-indigo-600 hover:bg-indigo-700" : "bg-muted text-muted-foreground"
-                  )}
-                  disabled={!query.trim() || isSearching}
+      <div className="flex flex-col h-full w-full">
+        <div className="bg-background border-b sticky top-0 z-20 px-8 py-6">
+          <div className="max-w-5xl mx-auto w-full flex items-center justify-between gap-4">
+            <div className="max-w-3xl">
+              <h1 className="text-2xl font-semibold mb-2">
+                What can I help you find?
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Chat with your uploaded documents. Ask follow-up questions just
+                like ChatGPT.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-2">
+                <span>Try asking:</span>
+                <button
+                  className="hover:text-indigo-600 transition-colors"
+                  onClick={() =>
+                    handleQuickPrompt("Explain the two pointer technique.")
+                  }
+                  type="button"
                 >
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
+                  "Explain the two pointer technique"
+                </button>
+                <span>•</span>
+                <button
+                  className="hover:text-indigo-600 transition-colors"
+                  onClick={() =>
+                    handleQuickPrompt(
+                      "Summarize the main algorithm in my document."
+                    )
+                  }
+                  type="button"
+                >
+                  "Summarize the main algorithm"
+                </button>
               </div>
-            </form>
-            <div className="mt-4 flex justify-center gap-2 text-sm text-muted-foreground">
-              <span>Try asking:</span>
-              <button 
-                className="hover:text-indigo-600 transition-colors"
-                onClick={() => setQuery("Summary of Project Titan")}
-              >
-                "Summary of Project Titan"
-              </button>
-              <span>•</span>
-              <button 
-                className="hover:text-indigo-600 transition-colors"
-                onClick={() => setQuery("What is on page 1 of Q3 Report?")}
-              >
-                "Page 1 of Q3 Report"
-              </button>
             </div>
+
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={handleNewChat}
+              disabled={isSearching || chatMessages.length === 0}
+            >
+              <PlusCircle className="w-4 h-4" />
+              New Chat
+            </Button>
           </div>
         </div>
 
-        {/* Results Area */}
-        <div className="flex-1 overflow-y-auto px-8 py-8">
-          <div className="max-w-4xl mx-auto space-y-8">
-            
-            {/* Loading State */}
-            {isSearching && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-4 h-4 text-indigo-600" />
+        <div className="flex-1 flex flex-col px-8 pb-4 pt-0 min-h-0">
+          <div className="max-w-5xl mx-auto flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto space-y-6 py-4">
+              {!isSearching && chatMessages.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-60">
+                  <div className="w-16 h-16 mb-4 rounded-full bg-muted flex items-center justify-center">
+                    <Search className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium">Ready to search</h3>
+                  <p className="text-muted-foreground max-w-xs mt-2">
+                    Ask anything about your knowledge base. I’ll answer using
+                    your uploaded documents.
+                  </p>
+                </div>
+              )}
+
+              {chatMessages.map((msg) => (
+                <ChatMessageBubble
+                  key={msg.id}
+                  message={msg}
+                  onCopy={handleCopy}
+                />
+              ))}
+
+              {isSearching && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+                    <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <div className="space-y-3 flex-1">
                     <Skeleton className="h-4 w-3/4" />
@@ -113,97 +162,154 @@ export default function SearchPage() {
                     <Skeleton className="h-4 w-5/6" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 pl-12">
-                  <Skeleton className="h-24 rounded-lg" />
-                  <Skeleton className="h-24 rounded-lg" />
-                  <Skeleton className="h-24 rounded-lg" />
-                </div>
-              </div>
-            )}
+              )}
 
-            {/* Answer Section */}
-            {!isSearching && hasResult && answer && (
-              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                
-                {/* AI Response */}
-                <div className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1 space-y-4">
-                    <div className="prose prose-slate max-w-none">
-                      <p 
-                        className="leading-relaxed text-foreground/90 text-lg"
-                        dangerouslySetInnerHTML={{ __html: answer.text }}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mt-4">
-                      <Button variant="ghost" size="sm" className="text-muted-foreground h-8">
-                        <Copy className="w-4 h-4 mr-2" /> Copy
-                      </Button>
-                      <div className="w-px h-4 bg-border" />
-                      <Button variant="ghost" size="sm" className="text-muted-foreground h-8">
-                        <ThumbsUp className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-muted-foreground h-8">
-                        <ThumbsDown className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              <div ref={bottomRef} />
+            </div>
 
-                {/* Citations / Sources */}
-                <div className="pl-12">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    Sources & Citations
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {answer.sources.map((source: any, i: number) => (
-                      <Card key={i} className="group hover:border-indigo-300 transition-colors cursor-pointer bg-card/50 backdrop-blur-sm">
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded bg-indigo-50 text-indigo-600">
-                                <FileText className="w-3 h-3" />
-                              </div>
-                              <span className="font-medium text-sm truncate max-w-[150px]">{source.title}</span>
-                            </div>
-                            <Badge variant="secondary" className="font-mono text-xs">{source.relevance}</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                            "{source.snippet}"
-                          </p>
-                          <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span>Page {source.page}</span>
-                            <span className="text-indigo-600 font-medium">View Chunk →</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+            <div className="border-t pt-4 mt-0 bg-background sticky bottom-0">
+              <form onSubmit={handleSend} className="relative group max-w-5xl">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-20 group-hover:opacity-30 transition-opacity duration-500" />
+                <div className="relative bg-background rounded-xl shadow-sm border border-input flex items-center p-1">
+                  <Input
+                    className="border-none shadow-none focus-visible:ring-0 h-12 text-lg px-4"
+                    placeholder="Ask a question about your documents..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={isSearching}
+                  />
+                  <Button
+                    size="icon"
+                    type="submit"
+                    className={cn(
+                      "h-10 w-10 rounded-lg transition-all duration-300",
+                      input.trim()
+                        ? "bg-indigo-600 hover:bg-indigo-700"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                    disabled={!input.trim() || isSearching}
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                  </Button>
                 </div>
-
-              </div>
-            )}
-
-            {/* Empty State / Intro */}
-            {!isSearching && !hasResult && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-50">
-                <div className="w-16 h-16 mb-4 rounded-full bg-muted flex items-center justify-center">
-                  <Search className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium">Ready to search</h3>
-                <p className="text-muted-foreground max-w-xs mt-2">
-                  Upload documents to your knowledge base to start asking questions.
+              </form>
+              {hasResult && (
+                <p className="mt-2 text-xs text-muted-foreground text-center">
+                  Tip: Ask a follow-up question to refine the answer.
                 </p>
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+
+function ChatMessageBubble({
+  message,
+  onCopy,
+}: {
+  message: ChatMessage;
+  onCopy: (text: string) => void;
+}) {
+  const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+  const [liked, setLiked] = useState<"up" | "down" | null>(null);
+
+  const handleCopyClick = async () => {
+    await onCopy(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 900);
+  };
+
+  const handleThumbUp = () => {
+    setLiked((prev) => (prev === "up" ? null : "up"));
+  };
+  const handleThumbDown = () => {
+    setLiked((prev) => (prev === "down" ? null : "down"));
+  };
+
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="flex items-end gap-3 max-w-3xl">
+          <div className="px-3 py-2 rounded-2xl rounded-br-sm bg-primary text-primary-foreground text-sm shadow-sm">
+            {message.content}
+          </div>
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <UserIcon className="w-4 h-4 text-primary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-start">
+      <div className="flex items-start gap-3 max-w-3xl w-full">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-md shadow-indigo-200">
+          <Bot className="w-4 h-4 text-white" />
+        </div>
+
+        <div className="flex-1 space-y-4">
+          <div className="prose prose-slate max-w-none">
+            <p className="leading-relaxed text-foreground/90 text-sm whitespace-pre-wrap">
+              {message.content}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-8 text-xs flex items-center gap-2 transition-all",
+                copied
+                  ? "bg-emerald-600 text-white scale-[1.03]"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+              onClick={handleCopyClick}
+            >
+              <Copy className="w-4 h-4" />
+              <span>{copied ? "Copied!" : "Copy"}</span>
+            </Button>
+
+            <div className="w-px h-4 bg-border" />
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleThumbUp}
+              className={cn(
+                "h-8 w-8 flex items-center justify-center rounded-full transition-transform",
+                liked === "up"
+                  ? "bg-blue-600 text-white scale-105 shadow-sm"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <ThumbsUp className="w-4 h-4" />
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleThumbDown}
+              className={cn(
+                "h-8 w-8 flex items-center justify-center rounded-full transition-transform",
+                liked === "down"
+                  ? "bg-red-500 text-white scale-105 shadow-sm"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <ThumbsDown className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
